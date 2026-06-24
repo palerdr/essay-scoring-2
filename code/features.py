@@ -1,7 +1,6 @@
-from dataclasses import dataclass
-import numpy as np
-import pandas as pd
-from pandas.api.types import CategoricalDtype
+ID_COL = "essay_id"
+TEXT_COL = "full_text"
+TARGET = "score"
 
-FEATURE_COLUMNS = ["essay_id", "full_text"]
-TARGET = "full_score"
+LABEL_OFFSET = 1
+NUM_LABELS = 6

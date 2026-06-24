@@ -1,0 +1,8 @@
+[2026-06-24 11:44:40,914][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/google-bert/bert-base-uncased/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+[2026-06-24 11:44:40,928][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/google-bert/bert-base-uncased/86b5e0934494bd15c9632b12f734a8a67f723594/config.json "HTTP/1.1 200 OK"
+[2026-06-24 11:44:40,960][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/google-bert/bert-base-uncased/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+[2026-06-24 11:44:40,976][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/google-bert/bert-base-uncased/86b5e0934494bd15c9632b12f734a8a67f723594/tokenizer_config.json "HTTP/1.1 200 OK"
+[2026-06-24 11:44:41,037][httpx][INFO] - HTTP Request: GET https://huggingface.co/api/models/google-bert/bert-base-uncased/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+[2026-06-24 11:44:41,074][httpx][INFO] - HTTP Request: GET https://huggingface.co/api/models/google-bert/bert-base-uncased/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+[2026-06-24 11:44:41,183][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/google-bert/bert-base-uncased/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+[2026-06-24 11:44:41,199][httpx][INFO] - HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/google-bert/bert-base-uncased/86b5e0934494bd15c9632b12f734a8a67f723594/config.json "HTTP/1.1 200 OK"

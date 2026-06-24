@@ -1,8 +1,7 @@
 dataset:
   competition_handle: learning-agency-lab-automated-essay-scoring-2
-
 model:
-  name: "google-bert/bert-base-uncased"
+  name: google-bert/bert-base-uncased
   seed: 42
   val_size: 0.2
   max_length: 256
@@ -10,13 +9,12 @@ model:
   batch_size: 8
   max_steps: 30
   num_labels: 6
-  lr: 0.00002
+  lr: 2.0e-05
   weight_decay: 0.01
-
 debug:
-  enabled: true
-  max_train_rows: 16
-  max_val_rows: 8
-  epochs: 1
-  batch_size: 4
-  max_steps: 2
+  true: true
+  max_train_rows: 256
+  max_val_rows: 64
+  epochs: 2
+  batch_size: 8
+  max_steps: 30
