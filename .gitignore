@@ -12,3 +12,4 @@ wheels/
 #tooling
 /.agents
 /nltk_data
+/outputs/
