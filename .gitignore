@@ -13,3 +13,7 @@ wheels/
 /.agents
 /nltk_data
 /outputs/
+best_model.pt
+train_stdout.log
+train_stderr.log
+kaggle_package/*.zip

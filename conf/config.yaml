@@ -1,10 +1,11 @@
 dataset:
   competition_handle: learning-agency-lab-automated-essay-scoring-2
+  input_dir: null
 
 model:
-  name: google-bert/bert-base-uncased
+  name: microsoft/deberta-v3-base
+  max_length: 512
   num_labels: 6
-  max_length: 256
 
 train:
   seed: 42
@@ -16,11 +17,18 @@ train:
   scheduler: cosine
 
 debug:
-  enabled: true
+  enabled: false
   max_train_rows: 16
   max_val_rows: 8
   epochs: 1
   max_steps: 2
+  batch_size: 8
 
 output:
   dir: outputs
+  checkpoint_path: best_model.pt
+  submission_name: submission.csv
+
+hydra:
+  run:
+    dir: ${output.dir}/${now:%Y-%m-%d}/${now:%H-%M-%S}

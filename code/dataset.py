@@ -1,7 +1,6 @@
-import pandas as pd
 import torch, torch.nn.functional as F
 from torch.utils.data import Dataset
-from metrics import label_to_score
+from metrics import score_to_label
 
 class EssayDataset(Dataset):
   def __init__(self, df, tokenizer, text_col="full_text", label_col="score", max_length=256, has_labels=True):
@@ -12,7 +11,7 @@ class EssayDataset(Dataset):
       self.max_length = max_length
       self.has_labels = has_labels
       if self.has_labels:
-         self.label_values = self.df[label_col].tolist()
+         self.score_values = self.df[label_col].tolist()
 
   def __len__(self):
       return len(self.df)
@@ -36,7 +35,6 @@ class EssayDataset(Dataset):
         item["token_type_ids"] = torch.tensor(enc["token_type_ids"], dtype=torch.long)
 
      if self.has_labels:
-        item['labels'] = torch.tensor(label_to_score((self.label_values[idx])), dtype=torch.long)
+        item['labels'] = torch.tensor(score_to_label(self.score_values[idx]), dtype=torch.long)
     
      return item
-

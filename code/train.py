@@ -2,6 +2,7 @@ import random
 import hydra
 import numpy as np
 import torch
+from tqdm import tqdm
 import torch.optim as optim
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
@@ -22,18 +23,22 @@ def set_seed(seed: int)-> None:
 def train(cfg: DictConfig) -> None:
     debug = cfg.debug.enabled
     m = cfg.model
-    set_seed(m.seed)
-    EPOCHS = cfg.debug.epochs if debug else m.epochs
+    t = cfg.train
+    set_seed(t.seed)
+    EPOCHS = cfg.debug.epochs if debug else t.epochs
 
-    train_df, test_df = load_competition_data(cfg.dataset.competition_handle)
+    train_df, test_df = load_competition_data(
+        handle=cfg.dataset.competition_handle,
+        input_dir=cfg.dataset.input_dir,
+    )
     print(f"Train shape: {train_df.shape}")
     print(f"Test shape: {test_df.shape}")
     print(f"Train columns: {list(train_df.columns)}")
     train_df, val_df = make_train_val_split(
         train_df=train_df,
         target_col=TARGET,
-        val_size=m.val_size,
-        seed=m.seed,
+        val_size=t.val_size,
+        seed=t.seed,
     )
 
     if debug:
@@ -69,23 +74,25 @@ def train(cfg: DictConfig) -> None:
     
     train_loader = DataLoader(
         train_ds,
-        batch_size=cfg.debug.batch_size if debug else m.batch_size,
+        batch_size=cfg.debug.batch_size if debug else t.batch_size,
         shuffle=True,
     )
 
     val_loader = DataLoader(
         val_ds,
-        batch_size=cfg.debug.batch_size if debug else m.batch_size,
+        batch_size=cfg.debug.batch_size if debug else t.batch_size,
         shuffle=False,
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+    print(f"Train batches: {len(train_loader)}")
+    print(f"Val batches: {len(val_loader)}")
     if debug:
         first_batch = next(iter(train_loader))
         print(f"batch input_ids: {first_batch['input_ids'].shape}")
         print(f"batch attention_mask: {first_batch['attention_mask'].shape}")
         print(f"batch labels: {first_batch['labels'].shape}")
-        print(f"Using device: {device}")
     
     # model = BertClassifier(
     #     model_name=m.name,
@@ -95,10 +102,11 @@ def train(cfg: DictConfig) -> None:
     #loss = nn.CrossEntropyLoss
 
     model = build_model(model_name = m.name, num_labels = m.num_labels)
-    optimizer = optim.AdamW(model.parameters(), lr=m.lr, weight_decay=m.weight_decay)
+    model.to(device)
+    optimizer = optim.AdamW(model.parameters(), lr=t.lr, weight_decay=t.weight_decay)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
     best_val_qwk = -1e8
-    for epoch in range(EPOCHS):
+    for epoch in tqdm(range(EPOCHS)):
         train_loss, train_qwk = train_one_epoch(
             model=model,
             train_loader=train_loader,
@@ -113,7 +121,7 @@ def train(cfg: DictConfig) -> None:
             debug_max_steps=cfg.debug.max_steps if debug else None,
         )
         print(
-            f"epoch {epoch + 1}/{cfg.debug.epochs if debug else m.epochs} "
+            f"epoch {epoch + 1}/{cfg.debug.epochs if debug else t.epochs} "
             f"train_loss={train_loss:.4f} "
             f"train_qwk={train_qwk:.4f} "
             f"val_loss={val_loss:.4f} "
