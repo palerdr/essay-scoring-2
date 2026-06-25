@@ -1,64 +1,91 @@
+import random
 import hydra
-import torch, torch.nn as nn
+import numpy as np
+import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
-from data import load_competition_data
 from omegaconf import DictConfig
-from dataset import EssayDataset
-from models import build_tokenizer, build_model, BertClassifier
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from features import TEXT_COL, TARGET, LABEL_OFFSET, ID_COL, NUM_LABELS
+from data import load_competition_data, make_train_val_split
+from dataset import EssayDataset
+from engine import evaluate, train_one_epoch
+from features import TARGET
+from models import build_model, build_tokenizer
+
+def set_seed(seed: int)-> None:
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 @hydra.main(version_base=None, config_path='../conf', config_name="config")
 def train(cfg: DictConfig) -> None:
     debug = cfg.debug.enabled
     m = cfg.model
+    set_seed(m.seed)
+    EPOCHS = cfg.debug.epochs if debug else m.epochs
 
     train_df, test_df = load_competition_data(cfg.dataset.competition_handle)
-
-    train_df, val_df = train_test_split(
-        train_df,
-        test_size=m.val_size,
-        random_state=m.seed,
-        stratify=train_df["score"],
+    print(f"Train shape: {train_df.shape}")
+    print(f"Test shape: {test_df.shape}")
+    print(f"Train columns: {list(train_df.columns)}")
+    train_df, val_df = make_train_val_split(
+        train_df=train_df,
+        target_col=TARGET,
+        val_size=m.val_size,
+        seed=m.seed,
     )
 
-    EPOCHS = cfg.debug.epochs if debug else m.epochs
-    BATCH = m.batch_size
-
-
     if debug:
-        print(f"Train shape: {train_df.shape}")
-        print(f"Test shape: {test_df.shape}")
-        print(f"Train columns: {train_df.columns}")
+        train_df = train_df.head(cfg.debug.max_train_rows).reset_index(drop=True)
+        val_df = val_df.head(cfg.debug.max_val_rows).reset_index(drop=True)
+
+        print(f"Debug train shape: {train_df.shape}")
+        print(f"Debug val shape: {val_df.shape}")
+        print(f"Debug train score counts:\n{train_df[TARGET].value_counts().sort_index()}")
+        print(f"Debug val score counts:\n{val_df[TARGET].value_counts().sort_index()}")
     
-        train_df = train_df.head(cfg.debug.max_train_rows)
-        val_df = val_df.head(cfg.debug.max_val_rows)
+        
     
     tokenizer = build_tokenizer(m.name)
 
-    train_dataset = EssayDataset(train_df, tokenizer, has_labels=True)
-    val_dataset = EssayDataset(val_df, tokenizer, has_labels=True)
+    train_ds = EssayDataset(
+        train_df,
+        tokenizer,
+        text_col="full_text",
+        label_col=TARGET,
+        max_length=m.max_length,
+        has_labels=True,
+    )
+
+    val_ds = EssayDataset(
+        val_df,
+        tokenizer,
+        text_col="full_text",
+        label_col=TARGET,
+        max_length=m.max_length,
+        has_labels=True,
+    )
     
     train_loader = DataLoader(
-        train_dataset,
-        batch_size=(cfg.debug.batch_size if debug else BATCH),
+        train_ds,
+        batch_size=cfg.debug.batch_size if debug else m.batch_size,
         shuffle=True,
-        )
-    
+    )
+
     val_loader = DataLoader(
-        val_dataset,
-        batch_size=(cfg.debug.batch_size if debug else BATCH),
+        val_ds,
+        batch_size=cfg.debug.batch_size if debug else m.batch_size,
         shuffle=False,
     )
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if debug:
-        first_tensor = train_dataset[0]
-        for key in ("input_ids", "attention_mask", "labels"):
-            print(f"{key} : {first_tensor[key].shape}")
-        print(f"labels min: {first_tensor['labels'].min().item()}")
-        print(f"labels max: {first_tensor['labels'].max().item()}")
+        first_batch = next(iter(train_loader))
+        print(f"batch input_ids: {first_batch['input_ids'].shape}")
+        print(f"batch attention_mask: {first_batch['attention_mask'].shape}")
+        print(f"batch labels: {first_batch['labels'].shape}")
+        print(f"Using device: {device}")
     
     # model = BertClassifier(
     #     model_name=m.name,
@@ -67,32 +94,37 @@ def train(cfg: DictConfig) -> None:
     
     #loss = nn.CrossEntropyLoss
 
-    model = build_model(
-        model_name = m.name,
-        num_labels = m.num_labels,
-    )
-
+    model = build_model(model_name = m.name, num_labels = m.num_labels)
     optimizer = optim.AdamW(model.parameters(), lr=m.lr, weight_decay=m.weight_decay)
-    scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS)
-
-    for _ in range(EPOCHS):
-        print(f"starting epoch {_ + 1}/{EPOCHS}")
-        model.train()
-        for batch in train_loader:
-            optimizer.zero_grad()
-            outputs = model(**batch)
-            loss = outputs.loss
-            print(f"train loss: {loss.item()}")
-            loss.backward()
-            optimizer.step()
-    
-        model.eval()
-
-        with torch.no_grad():
-            for batch in val_loader:
-                outputs = model(**batch)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
+    best_val_qwk = -1e8
+    for epoch in range(EPOCHS):
+        train_loss, train_qwk = train_one_epoch(
+            model=model,
+            train_loader=train_loader,
+            optimizer=optimizer,
+            device=device,
+            debug_max_steps=cfg.debug.max_steps if debug else None,
+        )
+        val_loss, val_qwk = evaluate(
+            model=model,
+            val_loader=val_loader,
+            device=device,
+            debug_max_steps=cfg.debug.max_steps if debug else None,
+        )
+        print(
+            f"epoch {epoch + 1}/{cfg.debug.epochs if debug else m.epochs} "
+            f"train_loss={train_loss:.4f} "
+            f"train_qwk={train_qwk:.4f} "
+            f"val_loss={val_loss:.4f} "
+            f"val_qwk={val_qwk:.4f}"
+        )
+        if val_qwk > best_val_qwk:
+            best_val_qwk = val_qwk
+            torch.save(model.state_dict(), "best_model.pt")
+            print(f"saved best_model.pt with val_qwk={best_val_qwk:.4f}")
         scheduler.step()
-        print(f"finished epoch {_ + 1}/{EPOCHS}")
+        
                 
 if __name__ == "__main__":
     train()

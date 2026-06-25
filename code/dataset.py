@@ -1,9 +1,6 @@
 import pandas as pd
-from transformers import AutoModel,AutoTokenizer
 import torch, torch.nn.functional as F
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer, AutoModel, AutoConfig
-from features import TEXT_COL, TARGET, LABEL_OFFSET, ID_COL, NUM_LABELS
 from metrics import label_to_score
 
 class EssayDataset(Dataset):
@@ -14,7 +11,6 @@ class EssayDataset(Dataset):
       self.label_col = label_col
       self.max_length = max_length
       self.has_labels = has_labels
-      
       if self.has_labels:
          self.label_values = self.df[label_col].tolist()
 
