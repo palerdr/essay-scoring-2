@@ -5,10 +5,8 @@ from tqdm import tqdm
 from pathlib import Path
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
-from data import load_competition_data
+from data import EssayDataset, ID_COL, TARGET_COL, TEXT_COL, load_competition_data
 from models import build_model, build_tokenizer
-from dataset import EssayDataset
-from features import TEXT_COL, TARGET
 from torch.utils.data import DataLoader
 from metrics import label_to_score
 
@@ -28,7 +26,7 @@ def main(cfg: DictConfig) -> None:
         df=test_df,
         tokenizer=tokenizer,
         text_col=TEXT_COL,
-        label_col=TARGET,
+        label_col=TARGET_COL,
         max_length=m.max_length,
         has_labels=False,
     )
@@ -52,7 +50,7 @@ def main(cfg: DictConfig) -> None:
             all_pred_scores.extend(pred_scores)
         
     submission = pd.DataFrame({
-    "essay_id": test_df["essay_id"].tolist(),
+    "essay_id": test_df[ID_COL].tolist(),
     "score": all_pred_scores,
     })
     submission_path = output_dir / cfg.output.submission_name

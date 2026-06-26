@@ -1,5 +1,6 @@
 from sklearn.metrics import cohen_kappa_score
-from features import TEXT_COL, TARGET, LABEL_OFFSET, ID_COL, NUM_LABELS
+
+LABEL_OFFSET = 1
 
 def quadratic_weighted_kappa(y_true, y_pred):
     return cohen_kappa_score(y_true, y_pred, weights="quadratic")

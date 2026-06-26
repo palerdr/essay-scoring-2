@@ -6,10 +6,8 @@ from tqdm import tqdm
 import torch.optim as optim
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
-from data import load_competition_data, make_train_val_split
-from dataset import EssayDataset
+from data import EssayDataset, TARGET_COL, TEXT_COL, load_competition_data, make_train_val_split
 from engine import evaluate, train_one_epoch
-from features import TARGET
 from models import build_model, build_tokenizer
 
 def set_seed(seed: int)-> None:
@@ -36,7 +34,7 @@ def train(cfg: DictConfig) -> None:
     print(f"Train columns: {list(train_df.columns)}")
     train_df, val_df = make_train_val_split(
         train_df=train_df,
-        target_col=TARGET,
+        target_col=TARGET_COL,
         val_size=t.val_size,
         seed=t.seed,
     )
@@ -47,8 +45,8 @@ def train(cfg: DictConfig) -> None:
 
         print(f"Debug train shape: {train_df.shape}")
         print(f"Debug val shape: {val_df.shape}")
-        print(f"Debug train score counts:\n{train_df[TARGET].value_counts().sort_index()}")
-        print(f"Debug val score counts:\n{val_df[TARGET].value_counts().sort_index()}")
+        print(f"Debug train score counts:\n{train_df[TARGET_COL].value_counts().sort_index()}")
+        print(f"Debug val score counts:\n{val_df[TARGET_COL].value_counts().sort_index()}")
     
         
     
@@ -57,8 +55,8 @@ def train(cfg: DictConfig) -> None:
     train_ds = EssayDataset(
         train_df,
         tokenizer,
-        text_col="full_text",
-        label_col=TARGET,
+        text_col=TEXT_COL,
+        label_col=TARGET_COL,
         max_length=m.max_length,
         has_labels=True,
     )
@@ -66,8 +64,8 @@ def train(cfg: DictConfig) -> None:
     val_ds = EssayDataset(
         val_df,
         tokenizer,
-        text_col="full_text",
-        label_col=TARGET,
+        text_col=TEXT_COL,
+        label_col=TARGET_COL,
         max_length=m.max_length,
         has_labels=True,
     )
