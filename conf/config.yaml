@@ -3,14 +3,28 @@ dataset:
   input_dir: null
 
 model:
+  architecture: transformer
   name: microsoft/deberta-v3-base
   max_length: 512
-  num_labels: 6
+  truncation_strategy: first
+  num_labels: 1
+  task: regression
+  gru:
+    embedding_dim: 128
+    hidden_size: 128
+    num_layers: 1
+    bidirectional: true
+    dropout: 0.2
+
+predict:
+  batch_size: 8
 
 train:
   seed: 42
   val_size: 0.2
-  epochs: 3
+  epochs: 5
+  cv_folds: 1
+  fold: null
   batch_size: 8
   lr: 0.00002
   weight_decay: 0.01
@@ -27,6 +41,8 @@ debug:
 output:
   dir: outputs
   checkpoint_path: best_model.pt
+  artifact_dir: kaggle_dataset
+  keep_checkpoint: false
   submission_name: submission.csv
 
 hydra:

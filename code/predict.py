@@ -5,10 +5,11 @@ from tqdm import tqdm
 from pathlib import Path
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
-from data import EssayDataset, ID_COL, TARGET_COL, TEXT_COL, load_competition_data
+from data import EssayDataset, ID_COL, load_competition_data
+from metrics import logits_to_scores
 from models import build_model, build_tokenizer
 from torch.utils.data import DataLoader
-from metrics import label_to_score
+
 
 @hydra.main(version_base=None, config_path='../conf', config_name="config")
 def main(cfg: DictConfig) -> None:
@@ -25,28 +26,34 @@ def main(cfg: DictConfig) -> None:
     test_ds = EssayDataset(
         df=test_df,
         tokenizer=tokenizer,
-        text_col=TEXT_COL,
-        label_col=TARGET_COL,
         max_length=m.max_length,
+        truncation_mode=m.get("truncation_strategy", "first"),
         has_labels=False,
+        task=m.task,
     )
-    
-    test_loader = DataLoader(test_ds, shuffle=False)
+
+    test_loader = DataLoader(test_ds, batch_size=cfg.predict.batch_size, shuffle=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model(m.name, m.num_labels)
+    model = build_model(
+        model_name=m.name,
+        num_labels=m.num_labels,
+        task=m.task,
+        architecture=m.architecture,
+        tokenizer=tokenizer,
+        gru_config=m.gru,
+    )
+    model.task = m.task
     state_dict = torch.load(cfg.output.checkpoint_path, map_location=device)
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
-    print("----------------------- Loaded Model -----------------------------")
     all_pred_scores = []
     with torch.no_grad():
         for batch in tqdm(test_loader):
             batch = {k: v.to(device) for k,v in batch.items()}
             outputs = model(**batch)
 
-            pred_labels = outputs.logits.argmax(dim=-1)
-            pred_scores = [label_to_score(x.item()) for x in pred_labels]
+            pred_scores = logits_to_scores(outputs.logits, m.task)
             all_pred_scores.extend(pred_scores)
         
     submission = pd.DataFrame({

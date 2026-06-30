@@ -16,4 +16,6 @@ wheels/
 best_model.pt
 train_stdout.log
 train_stderr.log
-kaggle_package/*.zip
+/kaggle_artifact/
+/kaggle_package/
+/submission/__pycache__/
